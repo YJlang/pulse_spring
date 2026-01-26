@@ -10,7 +10,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /*
  * SecurityConfig 클래스는 Spring Security의 주요 보안 설정을 담당합니다.
- * 
+
  * 1. 비밀번호 암호화를 위한 PasswordEncoder 빈을 등록합니다.
  * 2. SecurityFilterChain을 통해 HTTP 보안 정책을 정의합니다.
  *    - 특정 엔드포인트(/signup, /login, swagger 등)은 인증 없이 접근을 허용합니다.
