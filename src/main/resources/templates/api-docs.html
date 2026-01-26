@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PULSE API 명세서 v1.3</title>
+    <style>
+        :root {
+            --primary-color: #002B7A; /* Deep Blue */
+            --accent-color: #FF5A36; /* Vivid Orange */
+            --bg-color: #F5F7FA;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 43, 122, 0.1);
+        }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 30px;}
+
+        /* 토글 섹션 스타일 */
+        .api-section {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .api-section:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 헤더 (클릭 가능한 부분) */
+        .api-header {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        .api-header:hover {
+            background-color: #f1f3f5;
+        }
+        .api-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        /* 내용 (접히는 부분) */
+        .api-content {
+            padding: 20px;
+            display: none; /* 기본적으로 숨김 */
+            border-top: 1px solid var(--border-color);
+            background-color: white;
+        }
+        .api-content.open {
+            display: block; /* 클래스가 붙으면 보임 */
+        }
+
+        /* 화살표 아이콘 */
+        .arrow {
+            transition: transform 0.3s ease;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .arrow.open {
+            transform: rotate(180deg);
+        }
+
+        /* 배지 스타일 */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+        .badge.new { background-color: var(--accent-color); }
+        .badge.post { background-color: #28a745; font-size: 0.9rem; }
+        .badge.get { background-color: #007bff; font-size: 0.9rem; }
+
+        /* 테이블 및 코드 스타일 */
+        h3 { margin-top: 0; color: #555; font-size: 1rem; border-left: 4px solid var(--accent-color); padding-left: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0 30px 0; font-size: 0.95rem; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        th { background-color: #f1f3f5; font-weight: 600; color: var(--primary-color); width: 20%; }
+        td.code { font-family: 'Courier New', monospace; color: #d63384; font-weight: bold; }
+
+        pre {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', monospace;
+            margin-bottom: 30px;
+        }
+        .note {
+            background-color: #e7f5ff;
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📘 PULSE API 명세서 (v1.3)</h1>
+    <div style="margin-bottom: 30px; color: #666; font-size: 0.9rem;">
+        <p><strong>Base URL:</strong> <code>http://localhost:8080/api</code></p>
+        <p><strong>Last Updated:</strong> 2026-01-10</p>
+        <p>클릭하여 상세 내용을 확인하세요. <span style="color:var(--accent-color);">모두 펼치기 / 접기</span> 기능은 우측 상단 버튼을 활용하세요.</p>
+        <button onclick="toggleAll(true)" style="padding:5px 10px; cursor:pointer;">모두 펼치기</button>
+        <button onclick="toggleAll(false)" style="padding:5px 10px; cursor:pointer;">모두 접기</button>
+    </div>
+
+    <div class="api-section">
+        <div class="api-header" onclick="toggleSection(this)">
+            <div class="api-title">
+                <span class="badge post">POST</span>
+                /signup
+                <span class="badge new">NEW</span>
+                <span style="font-weight:normal; font-size:0.9rem; color:#666; margin-left:10px;">회원가입 및 분석 요청</span>
+            </div>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="api-content">
+            <div class="note">
+                <strong>⚠️ 중요 (v1.3):</strong><br>
+                - <code>shopInfo</code>는 반드시 <strong>객체(Object)</strong> 형태로 중첩해서 보내야 합니다.<br>
+                - <code>category</code>는 지정된 <strong>대문자 Enum 코드</strong>만 허용됩니다.
+            </div>
+
+            <h3>1. Request Body (JSON)</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>필드명</th>
+                    <th>타입</th>
+                    <th>필수</th>
+                    <th>설명</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr><td class="code">email</td><td>String</td><td>✅</td><td>로그인 아이디 (이메일)</td></tr>
+                <tr><td class="code">password</td><td>String</td><td>✅</td><td>비밀번호 (8자 이상)</td></tr>
+                <tr><td class="code">passwordConfirm</td><td>String</td><td>✅</td><td>비밀번호 확인</td></tr>
+                <tr><td class="code">name</td><td>String</td><td>✅</td><td>사장님 실명</td></tr>
+                <tr><td class="code">phone</td><td>String</td><td></td><td>휴대폰 번호</td></tr>
+                <tr><td class="code">privacyAgreed</td><td>Boolean</td><td>✅</td><td>개인정보 동의 (true)</td></tr>
+                <tr><td class="code">shopInfo <span class="badge new">NEW</span></td><td>Object</td><td>✅</td><td><strong>가게 정보 객체</strong></td></tr>
+                <tr><td class="code">&nbsp;&nbsp;.name</td><td>String</td><td>✅</td><td>가게 상호명</td></tr>
+                <tr><td class="code">&nbsp;&nbsp;.address</td><td>String</td><td>✅</td><td>가게 주소</td></tr>
+                <tr><td class="code">&nbsp;&nbsp;.category</td><td>Enum</td><td>✅</td><td><code>KOREAN</code>, <code>CHINESE</code>, <code>JAPANESE</code>,<br><code>WESTERN</code>, <code>CAFE_DESSERT</code>, <code>BAR</code>, <code>ETC</code></td></tr>
+                <tr><td class="code">&nbsp;&nbsp;.customCategory</td><td>String</td><td>⚠️</td><td><code>ETC</code>일 때만 입력 (그 외 null)</td></tr>
+                </tbody>
+            </table>
+
+            <h3>2. 예시 데이터 (Example)</h3>
+            <pre>
+{
+  "email": "owner@pulse.com",
+  "password": "strongPass123!",
+  "passwordConfirm": "strongPass123!",
+  "name": "박사장",
+  "phone": "010-1234-5678",
+  "privacyAgreed": true,
+  "shopInfo": {
+    "name": "PULSE 치킨",
+    "address": "서울시 강남구 테헤란로 123",
+    "category": "CHICKEN",
+    "customCategory": null
+  }
+}
+</pre>
+
+            <h3>3. Response</h3>
+            <table>
+                <tr><th>Status</th><th>Data</th></tr>
+                <tr><td class="code">201 Created</td><td>accessToken, message</td></tr>
+                <tr><td class="code">400 Bad Request</td><td>"비밀번호 불일치", "Enum 오류"</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="api-section">
+        <div class="api-header" onclick="toggleSection(this)">
+            <div class="api-title">
+                <span class="badge post">POST</span>
+                /login
+                <span class="badge new">NEW</span>
+                <span style="font-weight:normal; font-size:0.9rem; color:#666; margin-left:10px;">로그인 (토큰 발급)</span>
+            </div>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="api-content">
+            <h3>1. Request Body (JSON)</h3>
+            <table>
+                <thead>
+                <tr><th>필드명</th><th>타입</th><th>필수</th><th>설명</th></tr>
+                </thead>
+                <tbody>
+                <tr><td class="code">email</td><td>String</td><td>✅</td><td>이메일</td></tr>
+                <tr><td class="code">password</td><td>String</td><td>✅</td><td>비밀번호</td></tr>
+                </tbody>
+            </table>
+
+            <h3>2. 예시 데이터</h3>
+            <pre>
+{
+  "email": "owner@pulse.com",
+  "password": "strongPass123!"
+}
+</pre>
+
+            <h3>3. Response</h3>
+            <pre>
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "message": "로그인 성공"
+}
+</pre>
+        </div>
+    </div>
+
+    <footer style="text-align: center; color: #888; margin-top: 50px; font-size: 0.8rem;">
+        &copy; 2026 PULSE Project Team. All rights reserved.
+    </footer>
+</div>
+
+<script>
+    function toggleSection(header) {
+        const content = header.nextElementSibling;
+        const arrow = header.querySelector('.arrow');
+
+        if (content.classList.contains('open')) {
+            content.classList.remove('open');
+            arrow.classList.remove('open');
+            arrow.textContent = '▼';
+        } else {
+            content.classList.add('open');
+            arrow.classList.add('open');
+            arrow.textContent = '▲';
+        }
+    }
+
+    function toggleAll(open) {
+        const contents = document.querySelectorAll('.api-content');
+        const arrows = document.querySelectorAll('.arrow');
+
+        contents.forEach(content => {
+            if (open) content.classList.add('open');
+            else content.classList.remove('open');
+        });
+
+        arrows.forEach(arrow => {
+            if (open) {
+                arrow.classList.add('open');
+                arrow.textContent = '▲';
+            } else {
+                arrow.classList.remove('open');
+                arrow.textContent = '▼';
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
