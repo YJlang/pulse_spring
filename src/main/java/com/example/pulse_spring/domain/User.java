@@ -19,9 +19,9 @@ import lombok.*;
  */
 
 @Entity
-@Table(name = "users")
+@Table(name = "users") // 'user'는 DB 예약어일 가능성이 높아 테이블명을 users로 지정
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA 지연 로딩을 위한 기본 생성자 (외부 접근 제한)
 @AllArgsConstructor
 @Builder
 public class User {
@@ -30,15 +30,15 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String email;
+    private String email; // 로그인 아이디로 사용 (Unique)
 
     @Column(nullable = false)
-    private String password;
+    private String password; // BCrypt 암호화 저장
 
     @Column(nullable = false)
-    private String name;
+    private String name; // 사용자명
 
-    private String phone;
+    private String phone; // 연락처
 
     private boolean isPrivacyAgreed; // 개인정보 수집 동의 여부
 }

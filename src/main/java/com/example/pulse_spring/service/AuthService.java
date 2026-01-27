@@ -3,7 +3,9 @@ package com.example.pulse_spring.service;
 import com.example.pulse_spring.config.JwtTokenProvider;
 import com.example.pulse_spring.domain.*;
 import com.example.pulse_spring.dto.LoginRequest;
+import com.example.pulse_spring.dto.LoginResponse;
 import com.example.pulse_spring.dto.SignupRequest;
+import com.example.pulse_spring.dto.SignupResponse;
 import com.example.pulse_spring.repository.ShopRepository;
 import com.example.pulse_spring.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
  * 
  * 주요 역할:
  * - 회원가입(signup): 사용자의 이메일, 비밀번호 등 정보를 받아 유저와 상점 정보를 저장하고,
- *   가입시 토큰(JWT)을 발급합니다. 만약 가게 업종이 기타(ETC)일 경우 상세 업종 정보도 체크합니다.
- * - 로그인(login): 이메일과 비밀번호로 로그인 시도를 처리하고, 로그인 성공 시 토큰을 반환합니다.
+ *   가입시 토큰(JWT)과 완료 메시지를 담은 SignupResponse를 반환합니다.
+ *   만약 가게 업종이 기타(ETC)일 경우 상세 업종 정보도 체크합니다.
+ * - 로그인(login): 이메일과 비밀번호로 로그인 시도를 처리하고, 로그인 성공 시 토큰을 담은 LoginResponse를 반환합니다.
  * - FastAPI 요청: 회원가입 시 등록한 상점 정보로 외부 FastAPI에 비동기 데이터 분석 요청을 보냅니다.
  * 
  * 팀원 참고:
@@ -39,7 +42,7 @@ public class AuthService {
     private final FastApiClient fastApiClient;
 
     @Transactional
-    public String signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request) {
         // 1. 비밀번호와 비밀번호 확인이 같은지 검증
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
@@ -61,7 +64,8 @@ public class AuthService {
 
         // 4. Shop 엔티티 생성 전 ETC 업종일 때 customCategory 필요 여부 검증
         SignupRequest.ShopInfoDto info = request.getShopInfo();
-        if (info.getCategory() == Category.ETC && (info.getCustomCategory() == null || info.getCustomCategory().isBlank())) {
+        if (info.getCategory() == Category.ETC
+                && (info.getCustomCategory() == null || info.getCustomCategory().isBlank())) {
             throw new IllegalArgumentException("기타 업종 선택 시 상세 업종을 입력해야 합니다.");
         }
 
@@ -76,14 +80,16 @@ public class AuthService {
         shopRepository.save(shop);
 
         // 5. FastAPI로 상점 데이터 분석 비동기 요청 보내기
-        String keyword = (shop.getCategory() == Category.ETC) ? shop.getCustomCategory() : shop.getCategory().getDescription();
+        String keyword = (shop.getCategory() == Category.ETC) ? shop.getCustomCategory()
+                : shop.getCategory().getDescription();
         fastApiClient.sendAnalysisRequest(shop.getId(), shop.getName(), shop.getAddress(), keyword);
 
-        // 6. 가입 완료 후 JWT 토큰 반환
-        return jwtTokenProvider.createToken(user.getEmail());
+        // 6. 가입 완료 후 JWT 토큰 생성 및 반환
+        String token = jwtTokenProvider.createToken(user.getEmail());
+        return SignupResponse.of("가입이 완료되었습니다.", token);
     }
 
-    public String login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
         // 1. 이메일로 유저 조회 (없으면 예외)
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
@@ -92,7 +98,8 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
-        // 3. 로그인 성공 시 토큰 반환
-        return jwtTokenProvider.createToken(user.getEmail());
+        // 3. 로그인 성공 시 토큰 생성 및 반환
+        String token = jwtTokenProvider.createToken(user.getEmail());
+        return LoginResponse.of(token);
     }
 }
