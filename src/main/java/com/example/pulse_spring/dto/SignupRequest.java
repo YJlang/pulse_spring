@@ -25,20 +25,29 @@ import lombok.Setter;
 @Getter
 @Setter
 public class SignupRequest {
-    @NotBlank private String email;
-    @NotBlank private String password;
-    @NotBlank private String passwordConfirm;
-    @NotBlank private String name;
+    @NotBlank
+    private String email;
+    @NotBlank
+    private String password;
+    @NotBlank
+    private String passwordConfirm;
+    @NotBlank
+    private String name;
     private String phone;
     private boolean isPrivacyAgreed;
 
-    @NotNull private ShopInfoDto shopInfo;
+    @NotNull
+    private ShopInfoDto shopInfo;
 
-    @Getter @Setter
+    @Getter
+    @Setter
     public static class ShopInfoDto {
-        @NotBlank private String name;
-        @NotBlank private String address;
-        @NotNull private Category category;
+        @NotBlank
+        private String name;
+        @NotBlank
+        private String address;
+        @NotNull
+        private Category category;
         private String customCategory;
     }
 }
