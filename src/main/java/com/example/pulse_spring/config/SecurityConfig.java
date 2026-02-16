@@ -8,7 +8,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import jakarta.servlet.DispatcherType;
+
+import java.util.List;
 
 /*
  * SecurityConfig 클래스는 Spring Security의 주요 보안 설정을 담당합니다.
@@ -18,6 +23,7 @@ import jakarta.servlet.DispatcherType;
  *    - @EnableWebSecurity: Spring Security 설정을 활성화하며, 웹 보안 지원을 제공합니다.
  * 
  * 2. SecurityFilterChain 설정
+ *    - CORS 활성화: React 프론트엔드(localhost:5173)에서의 요청을 허용합니다.
  *    - CSRF 비활성화: REST API 서버이므로 CSRF 보호를 끕니다.
  *    - Authorization (인가) 설정:
  *      * DispatcherType.FORWARD, ERROR: 내부 포워딩 및 에러 페이지 접근을 허용합니다 (403 방지).
@@ -41,8 +47,22 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()

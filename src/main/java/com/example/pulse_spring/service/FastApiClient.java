@@ -21,7 +21,7 @@ import java.util.Map;
 @Service
 public class FastApiClient {
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String FASTAPI_URL = ""; // TODO: 연동할 Python FastAPI 서버의 실제 주소로 설정하세요.
+    private final String FASTAPI_URL = "http://127.0.0.1:8000/api/analysis/request";
 
     /**
      * 외부 FastAPI 서버에 가게 분석 요청을 전송합니다. (비동기 처리)
@@ -35,10 +35,8 @@ public class FastApiClient {
     public void sendAnalysisRequest(Long shopId, String shopName, String address, String keyword) {
         try {
             Map<String, Object> request = new HashMap<>();
-            request.put("shopId", shopId);
-            request.put("shopName", shopName);
-            request.put("address", address);
-            request.put("searchKeyword", keyword);
+            request.put("shopInfo_name", shopName);
+            request.put("shopInfo_address", address);
 
             restTemplate.postForObject(FASTAPI_URL, request, String.class);
             System.out.println("✅ [Async] FastAPI 분석 요청 전송 완료: " + shopName);
