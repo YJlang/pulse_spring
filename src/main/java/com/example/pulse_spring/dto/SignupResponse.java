@@ -23,13 +23,15 @@ import lombok.NoArgsConstructor;
 public class SignupResponse {
     private String message;
     private String accessToken;
+    private String analysisTaskId;
     @Builder.Default
     private String tokenType = "Bearer";
 
-    public static SignupResponse of(String message, String accessToken) {
+    public static SignupResponse of(String message, String accessToken, String analysisTaskId) {
         return SignupResponse.builder()
                 .message(message)
                 .accessToken(accessToken)
+                .analysisTaskId(analysisTaskId)
                 .build();
     }
 }

@@ -1,47 +1,190 @@
 package com.example.pulse_spring.service;
 
-import org.springframework.scheduling.annotation.Async;
+import com.example.pulse_spring.dto.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-/*
- * [FastApiClient 역할]
- * ------------------------------------------------------------
- * - 이 클래스는 외부 Python(FastAPI) 서버로 비동기 분석 요청을 보낼 때 사용되는 서비스입니다.
- * - 회원 가입 시점 등의 비즈니스 로직에서 가게 정보를 FastAPI로 전달하여
- *   데이터 분석, 크롤링, AI 예측 등 백엔드 파이프라인 입력을 트리거합니다.
- * - @Async 어노테이션을 통해 실제 API 요청은 메인 쓰레드를 블로킹하지 않고 비동기로 처리됩니다.
- * - 팀원 분들은 'sendAnalysisRequest' 메서드를 활용해 파라미터만 넘겨주면 분석 요청을 쉽게 날릴 수 있습니다.
- * - 추후 FastAPI 서버 주소(FASTAPI_URL) 지정 및 요청 스펙 변경 시 이 부분만 수정하면 됩니다.
- * - 오류 발생 시 표준 에러 로그로 실패 원인을 확인할 수 있습니다.
- */
-
 @Service
+@RequiredArgsConstructor
 public class FastApiClient {
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String FASTAPI_URL = "http://127.0.0.1:8000/api/analysis/request";
 
-    /**
-     * 외부 FastAPI 서버에 가게 분석 요청을 전송합니다. (비동기 처리)
-     *
-     * @param shopId    가게 ID
-     * @param shopName  가게 이름
-     * @param address   가게 주소
-     * @param keyword   분석에 사용할 검색 키워드
-     */
-    @Async
-    public void sendAnalysisRequest(Long shopId, String shopName, String address, String keyword) {
+    @Value("${fastapi.base-url}")
+    private String fastApiBaseUrl;
+
+    public String sendAnalysisRequest(Long shopId, String shopName, String address, String keyword) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("shopInfo_name", shopName);
+        request.put("shopInfo_address", address);
+
         try {
-            Map<String, Object> request = new HashMap<>();
-            request.put("shopInfo_name", shopName);
-            request.put("shopInfo_address", address);
+            AnalysisTaskResponse response = restTemplate.postForObject(
+                    fastApiBaseUrl + "/analysis/request",
+                    request,
+                    AnalysisTaskResponse.class
+            );
 
-            restTemplate.postForObject(FASTAPI_URL, request, String.class);
-            System.out.println("✅ [Async] FastAPI 분석 요청 전송 완료: " + shopName);
+            if (response == null || response.getTaskId() == null || response.getTaskId().isBlank()) {
+                throw new IllegalStateException("FastAPI가 task id를 반환하지 않았습니다.");
+            }
+
+            System.out.println("✅ FastAPI 분석 요청 전송 완료: " + shopName + " / taskId=" + response.getTaskId());
+            return response.getTaskId();
         } catch (Exception e) {
-            System.err.println("❌ [Async] FastAPI 연동 실패: " + e.getMessage());
+            throw new IllegalStateException("AI 분석 요청에 실패했습니다: " + e.getMessage(), e);
         }
+    }
+
+    public FastApiReviewSnapshotResponse fetchLatestReviews(String shopName, String address) {
+        URI uri = UriComponentsBuilder
+                .fromUriString(fastApiBaseUrl + "/reviews/latest")
+                .queryParam("store_name", shopName)
+                .queryParam("address", address)
+                .queryParam("refresh_if_needed", true)
+                .queryParam("target_total_reviews", 60)
+                .build()
+                .encode()
+                .toUri();
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            Map<String, Object> body = response.getBody();
+            if (body == null) {
+                return FastApiReviewSnapshotResponse.builder()
+                        .storeName(shopName)
+                        .address(address)
+                        .build();
+            }
+
+            List<Map<String, Object>> rawReviews = (List<Map<String, Object>>) body.getOrDefault("reviews", List.of());
+            List<ReviewItemDto> reviews = rawReviews.stream()
+                    .map(this::mapReviewItem)
+                    .toList();
+
+            Map<String, Integer> sourceCounts = new HashMap<>();
+            Object sourceCountsRaw = body.get("source_counts");
+            if (sourceCountsRaw instanceof Map<?, ?> map) {
+                map.forEach((key, value) -> sourceCounts.put(String.valueOf(key), ((Number) value).intValue()));
+            }
+
+            return FastApiReviewSnapshotResponse.builder()
+                    .storeName((String) body.getOrDefault("store_name", shopName))
+                    .address((String) body.getOrDefault("address", address))
+                    .totalReviews(((Number) body.getOrDefault("total_reviews", reviews.size())).intValue())
+                    .sourceCounts(sourceCounts)
+                    .lastCrawledAt((String) body.get("last_crawled_at"))
+                    .reviews(reviews)
+                    .build();
+        } catch (Exception e) {
+            return FastApiReviewSnapshotResponse.builder()
+                    .storeName(shopName)
+                    .address(address)
+                    .build();
+        }
+    }
+
+    public GenerateReviewRepliesResponse generateReviewReplies(String shopName, List<ReviewItemDto> reviews, ReviewManagementSettingsDto settings) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("shop_name", shopName);
+        request.put("reviews", reviews.stream().map(this::toFastApiReviewPayload).toList());
+        request.put("settings", toFastApiSettingsPayload(settings));
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    fastApiBaseUrl + "/reviews/replies/generate",
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, jsonHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            Map<String, Object> body = response.getBody();
+            if (body == null) {
+                return GenerateReviewRepliesResponse.builder().build();
+            }
+
+            List<Map<String, Object>> rawReplies = (List<Map<String, Object>>) body.getOrDefault("replies", List.of());
+            return GenerateReviewRepliesResponse.builder()
+                    .replies(rawReplies.stream().map(this::mapGeneratedReply).toList())
+                    .build();
+        } catch (Exception e) {
+            throw new IllegalStateException("AI 답글 생성에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    private HttpHeaders jsonHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+
+    private ReviewItemDto mapReviewItem(Map<String, Object> source) {
+        return ReviewItemDto.builder()
+                .id(String.valueOf(source.getOrDefault("id", "")))
+                .author(String.valueOf(source.getOrDefault("author", "리뷰어")))
+                .rating(source.get("rating") instanceof Number number ? number.doubleValue() : null)
+                .date((String) source.get("date"))
+                .content(String.valueOf(source.getOrDefault("text", "")))
+                .rawText(String.valueOf(source.getOrDefault("raw_text", "")))
+                .hasPhoto(Boolean.TRUE.equals(source.get("has_photo")))
+                .source(String.valueOf(source.getOrDefault("source", "")))
+                .sourceLabel(String.valueOf(source.getOrDefault("source_label", inferSourceLabel((String) source.get("source")))))
+                .build();
+    }
+
+    private GeneratedReviewReplyDto mapGeneratedReply(Map<String, Object> source) {
+        return GeneratedReviewReplyDto.builder()
+                .id(String.valueOf(source.getOrDefault("id", "")))
+                .reviewId(String.valueOf(source.getOrDefault("review_id", "")))
+                .content(String.valueOf(source.getOrDefault("content", "")))
+                .isRecommended(Boolean.TRUE.equals(source.get("is_recommended")))
+                .build();
+    }
+
+    private Map<String, Object> toFastApiReviewPayload(ReviewItemDto review) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", review.getId());
+        payload.put("source", review.getSource());
+        payload.put("author", review.getAuthor());
+        payload.put("rating", review.getRating());
+        payload.put("date", review.getDate());
+        payload.put("has_photo", review.isHasPhoto());
+        payload.put("text", review.getContent());
+        payload.put("raw_text", StringUtils.hasText(review.getRawText()) ? review.getRawText() : review.getContent());
+        return payload;
+    }
+
+    private Map<String, Object> toFastApiSettingsPayload(ReviewManagementSettingsDto settings) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("tone", settings.getTone());
+        payload.put("length", settings.getLength());
+        payload.put("includeThanks", settings.isIncludeThanks());
+        payload.put("includeGreatDay", settings.isIncludeGreatDay());
+        payload.put("useEmojis", settings.isUseEmojis());
+        payload.put("photoThanks", settings.isPhotoThanks());
+        payload.put("brandPreset", settings.getBrandPreset());
+        payload.put("optionalInstruction", settings.getOptionalInstruction());
+        payload.put("exceptionCases", settings.getExceptionCases());
+        return payload;
+    }
+
+    private String inferSourceLabel(String source) {
+        return "naver".equalsIgnoreCase(source) ? "네이버" : "카카오";
     }
 }

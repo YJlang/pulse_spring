@@ -1,22 +1,25 @@
 spring:
-
+  config:
+    import: optional:file:.env[.properties]
   datasource:
-    url: jdbc:mysql://localhost:3306/pulse_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-    username: root
-    password: wnsgk677400   # 본인 DB 비밀번호 입력
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/pulse_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: create
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
   session:
     jdbc:
       initialize-schema: always
 
-# JWT 설정 (32자 이상 랜덤 문자열)
 jwt:
-  secret: v3ryS3cr3tK3yF0rPuls3Pr0j3ctM4k3ItL0ng3r!!!
-  expiration: 86400000 # 1일
+  secret: ${JWT_SECRET:}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+fastapi:
+  base-url: ${FASTAPI_BASE_URL:http://127.0.0.1:8000/api}
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}

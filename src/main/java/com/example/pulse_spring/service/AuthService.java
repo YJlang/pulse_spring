@@ -82,11 +82,11 @@ public class AuthService {
         // 5. FastAPI로 상점 데이터 분석 비동기 요청 보내기
         String keyword = (shop.getCategory() == Category.ETC) ? shop.getCustomCategory()
                 : shop.getCategory().getDescription();
-        fastApiClient.sendAnalysisRequest(shop.getId(), shop.getName(), shop.getAddress(), keyword);
+        String analysisTaskId = fastApiClient.sendAnalysisRequest(shop.getId(), shop.getName(), shop.getAddress(), keyword);
 
         // 6. 가입 완료 후 JWT 토큰 생성 및 반환
         String token = jwtTokenProvider.createToken(user.getEmail());
-        return SignupResponse.of("가입이 완료되었습니다.", token);
+        return SignupResponse.of("가입이 완료되었습니다.", token, analysisTaskId);
     }
 
     public LoginResponse login(LoginRequest request) {
