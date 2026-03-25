@@ -4,6 +4,7 @@ import com.example.pulse_spring.config.JwtTokenProvider;
 import com.example.pulse_spring.domain.*;
 import com.example.pulse_spring.dto.LoginRequest;
 import com.example.pulse_spring.dto.LoginResponse;
+import com.example.pulse_spring.dto.CurrentUserProfileResponse;
 import com.example.pulse_spring.dto.SignupRequest;
 import com.example.pulse_spring.dto.SignupResponse;
 import com.example.pulse_spring.repository.ShopRepository;
@@ -101,5 +102,21 @@ public class AuthService {
         // 3. 로그인 성공 시 토큰 생성 및 반환
         String token = jwtTokenProvider.createToken(user.getEmail());
         return LoginResponse.of(token);
+    }
+
+    @Transactional(readOnly = true)
+    public CurrentUserProfileResponse getCurrentProfile(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 사용자입니다."));
+
+        Shop shop = shopRepository.findByUserEmail(userEmail)
+                .orElseThrow(() -> new IllegalStateException("사장님 가게 정보를 찾을 수 없습니다."));
+
+        return CurrentUserProfileResponse.builder()
+                .email(user.getEmail())
+                .ownerName(user.getName())
+                .shopName(shop.getName())
+                .shopAddress(shop.getAddress())
+                .build();
     }
 }
