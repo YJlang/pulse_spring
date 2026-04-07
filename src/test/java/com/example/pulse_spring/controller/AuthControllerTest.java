@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,20 +29,21 @@ class AuthControllerTest {
     @Test
     @DisplayName("회원가입 성공 테스트")
     void signupSuccess() {
-        // given
         SignupRequest request = new SignupRequest();
         request.setEmail("test@example.com");
         request.setPassword("password123");
         request.setPasswordConfirm("password123");
 
-        SignupResponse expectedResponse = SignupResponse.of("가입이 완료되었습니다.", "jwt-token");
+        SignupResponse expectedResponse = SignupResponse.of(
+                "가입이 완료되었습니다.",
+                "jwt-token",
+                "analysis-task-id"
+        );
 
         when(authService.signup(request)).thenReturn(expectedResponse);
 
-        // when
         ResponseEntity<?> result = authController.signup(request);
 
-        // then
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(result.getBody()).isEqualTo(expectedResponse);
     }
@@ -51,7 +51,6 @@ class AuthControllerTest {
     @Test
     @DisplayName("로그인 성공 테스트")
     void loginSuccess() {
-        // given
         LoginRequest request = new LoginRequest();
         request.setEmail("test@example.com");
         request.setPassword("password123");
@@ -60,10 +59,8 @@ class AuthControllerTest {
 
         when(authService.login(request)).thenReturn(expectedResponse);
 
-        // when
         ResponseEntity<?> result = authController.login(request);
 
-        // then
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(expectedResponse);
     }
